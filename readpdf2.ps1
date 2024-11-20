@@ -137,7 +137,7 @@ if($PSScriptRoot.length -eq 0){
     }
     }
 
-$mainpath="C:\tmp\plume\Main\FRV_v3.7.0\Docs\FRV\"
+$mainpath="C:\tmp\pdftest\"
 $pdfs=Get-ChildItem -path $mainpath -filter *frv*
 $anafolder= $mainpath  |Join-Path -ChildPath "ana"
 
@@ -187,6 +187,8 @@ $reader.Close()
 new-item $menutxt -Force|Out-Null
 $newlines=CorrectSpelling_word -Proofread_texts $menutext -tostring
 add-content $menutxt -value $newlines
+new-item $contenttxt -Force|Out-Null
+add-content $contenttxt -value $contents
 
 $sections2=New-Object System.Collections.ArrayList
 $section=$sections=$caseids=$pylines=$noaddcaseids=@()
@@ -214,22 +216,71 @@ foreach ($line in $contents) {
     $m++
     $q++
     $r++
-    if($i -lt ($contents.count -1)){
+    if($i -lt $contents.count){
      $nextline=(($contents[$i]).replace(" ","")|Out-String).trim()
-     <# no testtype after 3.6
-     $typeline2=($contents[$i+1]).replace(" ","")
-     if($typeline2 -match "testtype"){
-        $typeline=($contents[$i+2]).replace(" ","")
-     }
-     else{        
-        $typeline=($contents[$i+4]).replace(" ","")
-     }
-      #>
     }
     $linetrim=($line.replace(" ","")|Out-String).trim()
-    
     #if((($linetrim -eq "CaseID" -and $nextline -match "^C\d+") -or ($line -in $line1s -and $nextline -match "^C\d+") -or $i -eq ($contents.count))){
-        
+   
+     if($j -eq 1 -and $i -ne 1){
+                $caseid=$line.replace(" ","")
+                $caseids+=@($caseid)
+     }
+    else{
+
+        if($linetrim -match "^precondition"){
+            $r=0
+            $m=9999
+            $q=9999
+        } 
+        if ($linetrim -eq "steps"){
+            $r=9999
+        }
+
+       if($linetrim -match "^Automation"){
+            $k=0
+            $r=9999
+            $m=9999
+            $q=9999
+        } 
+
+        if($linetrim -eq "Expectedresult" -or $linetrim.trim() -eq "Expectedresult"){
+            $r=9999
+            $m=9999
+            $q=0
+            $expectline+=@($stepid)
+        } 
+        if(($linetrim -match "^\d+\.$" -or $linetrim -match "^\d+\.\d+\.$" ) -and ($nextline -eq "step") -and $r -ge 9999 ){
+            $m=0
+            $q=9999
+            $r=9999
+            $stepid=$linetrim
+        }
+        if($linetrim -match "^\d+\.\d+\.\d+"){
+            $k=999
+            $q=9999
+        }
+        if($k -gt 0 -and $k -lt 5){
+           $pylines+=$line
+           $pylines=$pylines.trim()
+        }
+        if($m -ge 0 -and $m -ne 1 -and $m -lt 9999 ){
+            $pylinestep+=@($line.replace("^","")) 
+         }
+         if($q -gt 0 -and $q -lt 9999){
+            $expectline+=@($line)
+            if($q -gt 50){
+            $expectline+=@("...(The output is too long, please refer document)")
+            $q = 9999
+            }
+         }
+         if($r -gt 0 -and $r -lt 9999){
+            $preconline+=@($line)
+         }
+        $section+=@($line)
+    }
+
+         
     if(($linetrim -eq "CaseID" -and ($nextline -match "^\d{6,}\b" -and !($nextline -match "\."))) -or ($i -eq $contents.count) ){
         $caseidlines+=@($n)
         $j=0
@@ -284,63 +335,6 @@ foreach ($line in $contents) {
                 }
         
        }
-        if($j -eq 1 -and $i -ne 1){
-                $caseid=$line.replace(" ","")
-                $caseids+=@($caseid)
-        }
-    else{
-
-        if($linetrim -match "^precondition"){
-            $r=0
-            $m=9999
-            $q=9999
-        } 
-        if ($linetrim -eq "steps"){
-            $r=9999
-        }
-
-       if($linetrim -match "^Automation"){
-            $k=0
-            $r=9999
-            $m=9999
-            $q=9999
-        } 
-
-        if($linetrim -eq "Expectedresult" -or $linetrim.trim() -eq "Expectedresult"){
-            $r=9999
-            $m=9999
-            $q=0
-            $expectline+=@($stepid)
-        } 
-        if(($linetrim -match "^\d+\.$" -or $linetrim -match "^\d+\.\d+\.$" ) -and ($nextline -eq "step") -and $r -ge 9999 ){
-            $m=0
-            $q=9999
-            $r=9999
-            $stepid=$linetrim
-        }
-        if($linetrim -match "^\d+\.\d+\.\d+"){
-            $k=999
-            $q=9999
-        }
-        if($k -gt 0 -and $k -lt 5){
-           $pylines+=$line
-           $pylines=$pylines.trim()
-        }
-        if($m -ge 0 -and $m -ne 1 -and $m -lt 9999 ){
-            $pylinestep+=@($line.replace("^","")) 
-         }
-         if($q -gt 0 -and $q -lt 9999){
-            $expectline+=@($line)
-            if($q -gt 50){
-            $expectline+=@("...(The output is too long, please refer document)")
-            $q = 9999
-            }
-         }
-         if($r -gt 0 -and $r -lt 9999){
-            $preconline+=@($line)
-         }
-        $section+=@($line)
-    }
 }
 $sections2|export-csv $csvpath -NoTypeInformation -Encoding UTF8
 
